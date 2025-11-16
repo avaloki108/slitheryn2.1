@@ -4,9 +4,9 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="slither-analyzer",
-    description="Slither is a Solidity and Vyper static analysis framework written in Python 3.",
-    url="https://github.com/crytic/slither",
+    name="slitheryn-analyzer",
+    description="Slitheryn is a Solidity and Vyper static analysis framework written in Python 3.",
+    url="https://github.com/avaloki108/slitheryn2.1",
     author="Trail of Bits",
     version="0.11.3",
     packages=find_packages(),
@@ -42,7 +42,7 @@ setup(
             "pdoc",
         ],
         "dev": [
-            "slither-analyzer[lint,test,doc]",
+            "slitheryn-analyzer[lint,test,doc]",
             "openai",
         ],
     },
@@ -51,20 +51,20 @@ setup(
     long_description_content_type="text/markdown",
     entry_points={
         "console_scripts": [
-            "slither = slither.__main__:main",
-            "slither-check-upgradeability = slither.tools.upgradeability.__main__:main",
-            "slither-find-paths = slither.tools.possible_paths.__main__:main",
-            "slither-simil = slither.tools.similarity.__main__:main",
-            "slither-flat = slither.tools.flattening.__main__:main",
-            "slither-format = slither.tools.slither_format.__main__:main",
-            "slither-check-erc = slither.tools.erc_conformance.__main__:main",
-            "slither-check-kspec = slither.tools.kspec_coverage.__main__:main",
-            "slither-prop = slither.tools.properties.__main__:main",
-            "slither-mutate = slither.tools.mutator.__main__:main",
-            "slither-read-storage = slither.tools.read_storage.__main__:main",
-            "slither-doctor = slither.tools.doctor.__main__:main",
-            "slither-documentation = slither.tools.documentation.__main__:main",
-            "slither-interface = slither.tools.interface.__main__:main",
+            "slitheryn = slitheryn.__main__:main",
+            "slitheryn-check-upgradeability = slitheryn.tools.upgradeability.__main__:main",
+            "slitheryn-find-paths = slitheryn.tools.possible_paths.__main__:main",
+            "slitheryn-simil = slitheryn.tools.similarity.__main__:main",
+            "slitheryn-flat = slitheryn.tools.flattening.__main__:main",
+            "slitheryn-format = slitheryn.tools.slitheryn_format.__main__:main",
+            "slitheryn-check-erc = slitheryn.tools.erc_conformance.__main__:main",
+            "slitheryn-check-kspec = slitheryn.tools.kspec_coverage.__main__:main",
+            "slitheryn-prop = slitheryn.tools.properties.__main__:main",
+            "slitheryn-mutate = slitheryn.tools.mutator.__main__:main",
+            "slitheryn-read-storage = slitheryn.tools.read_storage.__main__:main",
+            "slitheryn-doctor = slitheryn.tools.doctor.__main__:main",
+            "slitheryn-documentation = slitheryn.tools.documentation.__main__:main",
+            "slitheryn-interface = slitheryn.tools.interface.__main__:main",
         ]
     },
 )
