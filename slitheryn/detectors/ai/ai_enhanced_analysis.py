@@ -55,7 +55,13 @@ class AIEnhancedAnalysis(AbstractDetector):
         # Initialize AI client if enabled
         if self.ai_config.is_ai_enabled():
             try:
-                self.ollama_client = OllamaClient(self.ai_config.get_ollama_url())
+                self.ollama_client = OllamaClient(
+                    self.ai_config.get_ollama_url(),
+                    self.ai_config,
+                    vector_store=getattr(slither_instance, "_vector_store", None),
+                    similarity_threshold=getattr(slither_instance, "_similarity_threshold", 0.7),
+                    max_similar_contracts=getattr(slither_instance, "_max_similar_contracts", 3),
+                )
                 logger.info("AI-Enhanced Analysis detector initialized")
             except Exception as e:
                 logger.warning(f"Could not initialize AI client: {e}")
@@ -213,6 +219,21 @@ class AIEnhancedAnalysis(AbstractDetector):
                         info.append(f"  {i}. {fix[:150]}...")
                 
                 # Create output
+                similar_contracts = []
+                if self.ollama_client and self.ollama_client.vector_store:
+                    try:
+                        similar = self.ollama_client.vector_store.search_similar(
+                            self.ollama_client.vector_store._store.get(contract.name, ([], {}))[0],  # type: ignore
+                            top_k=getattr(self.ollama_client, "max_similar_contracts", 3),
+                        )
+                        similar_contracts = [
+                            {"name": s["name"], "score": s["score"]} for s in similar if s["name"] != contract.name
+                        ]
+                    except Exception:
+                        similar_contracts = []
+
+                locations = getattr(ai_result, "vulnerability_locations", {})
+
                 output = Output(
                     info,
                     additional_fields={
@@ -220,7 +241,9 @@ class AIEnhancedAnalysis(AbstractDetector):
                         'ai_confidence': ai_result.confidence_score,
                         'ai_model': ai_result.model_used,
                         'severity': severity,
-                        'analysis_time': ai_result.analysis_time
+                        'analysis_time': ai_result.analysis_time,
+                        'similar_contracts': similar_contracts,
+                        'vulnerability_locations': locations,
                     }
                 )
                 

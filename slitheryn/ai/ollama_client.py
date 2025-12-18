@@ -27,18 +27,38 @@ class AIAnalysisResult:
 
 class OllamaClient:
     """Client for interacting with Ollama models for security analysis"""
-    
-    def __init__(self, base_url: str = "http://localhost:11434"):
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434",
+        config_manager=None,
+        vector_store=None,
+        similarity_threshold: float = 0.7,
+        max_similar_contracts: int = 3,
+    ):
+        from slitheryn.ai.config import get_ai_config
+
         self.base_url = base_url
-        self.primary_model = "SmartLLM-OG:latest"
-        self.reasoning_model = "phi4-reasoning:latest"
-        self.comprehensive_model = "qwen3:30b-a3b"
         self.timeout = 120
+        self.vector_store = vector_store
+        self.similarity_threshold = similarity_threshold
+        self.max_similar_contracts = max_similar_contracts
+
+        # Get configuration from config manager
+        if config_manager is None:
+            self.ai_config = get_ai_config()
+        else:
+            self.ai_config = config_manager
+
+        # Load model names from configuration
+        self.primary_model = self.ai_config.config.primary_model
+        self.reasoning_model = self.ai_config.config.reasoning_model
+        self.comprehensive_model = self.ai_config.config.comprehensive_model
         
     def check_model_availability(self, model_name: str) -> bool:
         """Check if a model is available in Ollama"""
         try:
-            response = requests.get(f"{self.base_url}/api/tags", timeout=10)
+            response = requests.get(f"{self.base_url}/api/tags", timeout=30)  # Increased timeout for large models
             if response.status_code == 200:
                 models = response.json().get('models', [])
                 available_models = [m['name'] for m in models]
@@ -197,11 +217,53 @@ Format your response as structured analysis with clear sections."""
         else:  # comprehensive
             base_prompt += "\n\nProvide exhaustive analysis covering all possible security issues and attack vectors."
         
+        rag_context = self._get_rag_context(contract_code, contract_name)
+        if rag_context:
+            base_prompt += "\n\nContext from similar contracts in this codebase:\n"
+            base_prompt += rag_context
+
+        base_prompt += """
+\n\nReturn results in JSON with the following keys:
+- vulnerabilities: array of vulnerability identifiers
+- severity_scores: object mapping vulnerability -> Critical/High/Medium/Low
+- attack_scenarios: array of concise step-by-step scenarios
+- fix_recommendations: array of actionable fixes
+- confidence_score: float between 0 and 1
+"""
+
         return base_prompt
+
+    def _get_rag_context(self, contract_code: str, contract_name: str) -> str:
+        """
+        Retrieve similar contract snippets using the vector store.
+        """
+        if not self.vector_store:
+            return ""
+        # If we have an embedding for this contract already, use similarity search
+        if contract_name in getattr(self.vector_store, "_store", {}):
+            contexts = self.vector_store.get_context_for_contract(
+                contract_name, self.max_similar_contracts
+            )
+        else:
+            # Fallback: embed on the fly using the embedding service is not available here.
+            contexts = []
+
+        if not contexts:
+            return ""
+
+        joined = []
+        for idx, ctx in enumerate(contexts, 1):
+            joined.append(f"[Similar #{idx}]\n{ctx[:1200]}")
+        return "\n\n".join(joined)
     
     def _parse_ai_response(self, response: str) -> Dict:
         """Parse AI response to extract structured vulnerability information"""
         
+        # Try structured JSON first
+        structured = self._parse_json_response(response)
+        if structured:
+            return structured
+
         response_lower = response.lower()
         
         # Extract vulnerabilities mentioned
@@ -217,11 +279,18 @@ Format your response as structured analysis with clear sections."""
             'time_manipulation': ['timestamp', 'block.timestamp', 'time'],
             'uninitialized_storage': ['uninitialized', 'storage'],
             'delegatecall': ['delegatecall', 'delegate call'],
-            'tx_origin': ['tx.origin', 'tx origin']
+            'tx_origin': ['tx.origin', 'tx origin'],
+            'mev': ['mev', 'sandwich', 'front run'],
+            'oracle': ['oracle', 'price feed', 'manipulation'],
+            'upgradeability': ['proxy', 'upgrade', 'delegatecall upgrade'],
+            'authorization': ['admin', 'owner', 'privileged'],
         }
         
         found_vulnerabilities = []
         severity_scores = {}
+        vulnerability_locations: Dict[str, List[str]] = {}
+
+        lines = response.splitlines()
         
         for vuln_type, keywords in vulnerability_keywords.items():
             for keyword in keywords:
@@ -231,6 +300,11 @@ Format your response as structured analysis with clear sections."""
                     severity = self._extract_severity_for_vulnerability(response_lower, keyword)
                     if severity:
                         severity_scores[vuln_type] = severity
+                    # Capture potential function context
+                    for line in lines:
+                        lower = line.lower()
+                        if keyword in lower and "function" in lower:
+                            vulnerability_locations.setdefault(vuln_type, []).append(line.strip())
                     break
         
         # Extract attack scenarios
@@ -242,13 +316,71 @@ Format your response as structured analysis with clear sections."""
         # Calculate confidence score based on response quality
         confidence_score = self._calculate_confidence_score(response, found_vulnerabilities)
         
+        # Filter out weak findings
+        validated = []
+        for vuln in found_vulnerabilities:
+            if self._validate_vulnerability_finding(
+                vuln, severity_scores, attack_scenarios, fix_recommendations
+            ):
+                validated.append(vuln)
+
         return {
-            'vulnerabilities': list(set(found_vulnerabilities)),
+            'vulnerabilities': list(set(validated)),
             'severity_scores': severity_scores,
             'attack_scenarios': attack_scenarios,
             'fix_recommendations': fix_recommendations,
+            'vulnerability_locations': vulnerability_locations,
             'confidence_score': confidence_score
         }
+
+    def _validate_vulnerability_finding(
+        self,
+        vuln_type: str,
+        severity_scores: Dict[str, str],
+        attack_scenarios: List[str],
+        fix_recommendations: List[str],
+    ) -> bool:
+        """
+        Basic validation to reduce false positives.
+        """
+        has_severity = vuln_type in severity_scores
+        has_scenario = any(vuln_type.replace("_", " ") in s.lower() for s in attack_scenarios)
+        has_fix = any(vuln_type.replace("_", " ") in f.lower() for f in fix_recommendations)
+        similar_context = False
+        if self.vector_store:
+            similar_context = bool(
+                self.vector_store.search_similar(
+                    self.vector_store._store.get(vuln_type, ([], {}))[0] if hasattr(self.vector_store, "_store") else [],  # type: ignore
+                    top_k=1,
+                )
+            )
+        return has_severity or has_scenario or has_fix or similar_context
+
+    def _parse_json_response(self, response: str) -> Optional[Dict]:
+        """
+        Attempt to parse a structured JSON response.
+        Expected keys: vulnerabilities, severity_scores, attack_scenarios, fix_recommendations, confidence_score
+        """
+        try:
+            data = json.loads(response)
+            if not isinstance(data, dict):
+                return None
+            vulnerabilities = data.get("vulnerabilities") or data.get("issues")
+            if vulnerabilities is None:
+                return None
+            severity_scores = data.get("severity_scores", {})
+            attack_scenarios = data.get("attack_scenarios", [])
+            fix_recommendations = data.get("fix_recommendations", [])
+            confidence = data.get("confidence_score", 0.5)
+            return {
+                "vulnerabilities": vulnerabilities,
+                "severity_scores": severity_scores,
+                "attack_scenarios": attack_scenarios,
+                "fix_recommendations": fix_recommendations,
+                "confidence_score": confidence,
+            }
+        except Exception:
+            return None
     
     def _extract_severity_for_vulnerability(self, response_lower: str, vulnerability_keyword: str) -> Optional[str]:
         """Extract severity level for a specific vulnerability"""
@@ -280,6 +412,8 @@ Format your response as structured analysis with clear sections."""
             'attack scenario', 'exploit', 'attacker', 'malicious',
             'step 1', 'step 2', 'first', 'then', 'finally'
         ]
+        impact_terms = ['profit', 'loss', 'drain', 'steal', 'impact', 'cost']
+        prereq_terms = ['requires', 'assumes', 'needs', 'prerequisite']
         
         lines = response.split('\n')
         current_scenario = []
@@ -296,6 +430,10 @@ Format your response as structured analysis with clear sections."""
                 if len(current_scenario) > 5:  # Limit scenario length
                     scenarios.append(' '.join(current_scenario))
                     current_scenario = []
+            elif any(term in line_lower for term in impact_terms):
+                current_scenario.append(f"Impact: {line.strip()}")
+            elif any(term in line_lower for term in prereq_terms):
+                current_scenario.append(f"Prerequisite: {line.strip()}")
         
         if current_scenario:
             scenarios.append(' '.join(current_scenario))
@@ -305,6 +443,8 @@ Format your response as structured analysis with clear sections."""
     def _extract_fix_recommendations(self, response: str) -> List[str]:
         """Extract fix recommendations from the response"""
         recommendations = []
+        code_block = []
+        in_code = False
         
         # Look for fix recommendation indicators
         fix_indicators = [
@@ -316,6 +456,15 @@ Format your response as structured analysis with clear sections."""
         
         for line in lines:
             line_lower = line.lower().strip()
+            if line_lower.startswith("```"):
+                if in_code and code_block:
+                    recommendations.append("CODE:" + "\n".join(code_block))
+                    code_block = []
+                in_code = not in_code
+                continue
+            if in_code:
+                code_block.append(line.rstrip())
+                continue
             if any(indicator in line_lower for indicator in fix_indicators) and len(line.strip()) > 20:
                 recommendations.append(line.strip())
         

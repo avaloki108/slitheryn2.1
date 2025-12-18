@@ -92,7 +92,7 @@ def check_system_status(config_manager, check_models=False):
     status['multi_agent_system'] = multi_agent_config
     
     # Initialize Ollama client and check connection
-    ollama_client = OllamaClient(config_manager.get_ollama_url())
+    ollama_client = OllamaClient(config_manager.get_ollama_url(), config_manager)
     
     try:
         # Test Ollama connection

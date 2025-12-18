@@ -12,6 +12,8 @@ from slitheryn.printers.abstract_printer import AbstractPrinter
 from slitheryn.solc_parsing.slither_compilation_unit_solc import SlitherCompilationUnitSolc
 from slitheryn.vyper_parsing.vyper_compilation_unit import VyperCompilationUnit
 from slitheryn.utils.output import Output
+from slitheryn.ai.embedding_service import EmbeddingService
+from slitheryn.ai.vector_store import VectorStore
 from slitheryn.vyper_parsing.ast.ast import parse
 
 logger = logging.getLogger("Slither")
@@ -199,6 +201,14 @@ class Slither(
         # Used in inheritance-graph printer
         self.include_interfaces = kwargs.get("include_interfaces", False)
 
+        # RAG embeddings (optional)
+        self._enable_rag = kwargs.get("enable_rag", False)
+        self._embedding_service: Optional[EmbeddingService] = None
+        self._vector_store: Optional[VectorStore] = None
+        self._embedding_cache_path: Optional[str] = None
+
+        self._init_rag_configuration()
+
         self._init_parsing_and_analyses(kwargs.get("skip_analyze", False))
 
     def _init_parsing_and_analyses(self, skip_analyze: bool) -> None:
@@ -210,6 +220,10 @@ class Slither(
                     continue
                 raise e
 
+        # Embed contracts for RAG before analysis (optional)
+        if self._enable_rag:
+            self._embed_all_contracts()
+
         # skip_analyze is only used for testing
         if not skip_analyze:
             for parser in self._parsers:
@@ -219,6 +233,92 @@ class Slither(
                     if self.no_fail:
                         continue
                     raise e
+
+    # RAG helpers ----------------------------------------------------------
+    def _init_rag_configuration(self) -> None:
+        """
+        Configure RAG from AI config if available.
+        """
+        self._ollama_url = "http://localhost:11434"
+        self._embedding_model = "qwen3-embedding:4b"
+        self._cache_embeddings = True
+        self._embedding_cache_path = ".slitheryn/embeddings_cache/embeddings.json"
+        try:
+            from slitheryn.ai.config import get_ai_config  # type: ignore
+
+            ai_config = get_ai_config()
+            self._ollama_url = ai_config.get_ollama_url()
+            cfg = ai_config.config
+            self._enable_rag = self._enable_rag or getattr(cfg, "enable_rag", False)
+            self._embedding_model = getattr(cfg, "embedding_model", self._embedding_model)
+            self._cache_embeddings = getattr(cfg, "cache_embeddings", self._cache_embeddings)
+            self._embedding_cache_path = getattr(
+                cfg, "cache_path", self._embedding_cache_path
+            )
+            self._similarity_threshold = getattr(cfg, "similarity_threshold", 0.7)
+            self._max_similar_contracts = getattr(cfg, "max_similar_contracts", 3)
+        except Exception:
+            # Best-effort config; fall back to defaults
+            self._similarity_threshold = 0.7
+            self._max_similar_contracts = 3
+
+        if self._enable_rag:
+            self._embedding_service = EmbeddingService(
+                base_url=self._ollama_url,
+                model=self._embedding_model,
+                timeout=120,
+            )
+            self._vector_store = VectorStore()
+            if self._cache_embeddings and self._embedding_cache_path:
+                try:
+                    self._vector_store.load_from_cache(self._embedding_cache_path)
+                except Exception:
+                    pass
+
+    def _embed_all_contracts(self) -> None:
+        """
+        Embed all parsed contracts and store in vector store.
+        """
+        if not self._embedding_service or not self._vector_store:
+            return
+        if not self._embedding_service.check_model_availability():
+            return
+
+        for compilation_unit in self.compilation_units:
+            for contract in compilation_unit.contracts:
+                if getattr(contract, "is_interface", False):
+                    continue
+                if contract.name in getattr(self._vector_store, "_store", {}):
+                    continue
+                source = self._read_contract_source(contract)
+                if not source:
+                    continue
+                metadata = {
+                    "file_path": str(getattr(contract.source_mapping.filename, "absolute", "")),
+                    "name": contract.name,
+                    "code": source,
+                    "code_snippet": source[:2000],  # keep snippet for prompt context
+                }
+                embedding = self._embedding_service.embed_contract(source, contract.name)
+                if embedding:
+                    self._vector_store.add_contract(contract.name, embedding, metadata)
+
+        if self._cache_embeddings and self._embedding_cache_path:
+            try:
+                self._vector_store.save_to_cache(self._embedding_cache_path)
+            except Exception:
+                pass
+
+    def _read_contract_source(self, contract) -> Optional[str]:
+        try:
+            if hasattr(contract, "source_mapping") and contract.source_mapping:
+                mapping = contract.source_mapping
+                if hasattr(mapping, "filename") and mapping.filename:
+                    with open(mapping.filename.absolute, "r", encoding="utf-8") as f:
+                        return f.read()
+        except Exception:
+            return None
+        return None
 
     @property
     def detectors(self):

@@ -165,7 +165,7 @@ async def run_multi_agent_audit(args):
         config_manager.update_config(**config_updates)
     
     # Initialize Ollama client
-    ollama_client = OllamaClient(config_manager.get_ollama_url())
+    ollama_client = OllamaClient(config_manager.get_ollama_url(), config_manager)
     
     # Check if multi-agent analysis is available
     analysis_type = 'quick' if args.quick else args.analysis_type

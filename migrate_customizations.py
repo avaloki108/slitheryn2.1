@@ -91,7 +91,7 @@ async def _process_with_multi_agent(
                 ai_config.update_config(**config_updates)
             
             # Initialize Ollama client
-            ollama_client = OllamaClient(ai_config.get_ollama_url())
+            ollama_client = OllamaClient(ai_config.get_ollama_url(), ai_config)
             
             # Prepare contract code for analysis
             contracts_analyzed = []

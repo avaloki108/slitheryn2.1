@@ -14,9 +14,9 @@ logger = logging.getLogger("Slitheryn.AI.Config")
 @dataclass
 class AIModelConfig:
     """Configuration for AI models"""
-    primary_model: str = "SmartLLM-OG:latest"
-    reasoning_model: str = "phi4-reasoning:latest"
-    comprehensive_model: str = "qwen3:30b-a3b"
+    primary_model: str = "devstral-small-2:24b"
+    reasoning_model: str = "gpt-oss:20b"
+    comprehensive_model: str = "qwen3-coder:30b"
     ollama_base_url: str = "http://localhost:11434"
     timeout: int = 120
     temperature: float = 0.1
@@ -31,6 +31,14 @@ class AIModelConfig:
     consensus_threshold: float = 0.7
     parallel_analysis: bool = True
     max_workers: int = 4
+
+    # RAG configuration
+    enable_rag: bool = True
+    embedding_model: str = "qwen3-embedding:4b"
+    similarity_threshold: float = 0.7
+    max_similar_contracts: int = 3
+    cache_embeddings: bool = True
+    cache_path: str = ".slitheryn/embeddings_cache/embeddings.json"
     
     def __post_init__(self):
         if self.analysis_types is None:

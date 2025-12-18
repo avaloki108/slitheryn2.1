@@ -1,7 +1,7 @@
 {
-  "primary_model": "SmartLLM-OG:latest",
-  "reasoning_model": "phi4-reasoning:latest",
-  "comprehensive_model": "qwen3:30b-a3b",
+  "primary_model": "devstral-small-2:24b",
+  "reasoning_model": "gpt-oss:20b",
+  "comprehensive_model": "qwen3-coder:30b",
   "ollama_base_url": "http://localhost:11434",
   "timeout": 120,
   "temperature": 0.1,

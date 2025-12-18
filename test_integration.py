@@ -77,7 +77,9 @@ def test_agent_initialization():
         )
         
         # Create a mock Ollama client (won't connect to network)
-        ollama_client = OllamaClient("http://localhost:11434")
+        from slitheryn.ai.config import get_ai_config
+        ai_config = get_ai_config()
+        ollama_client = OllamaClient("http://localhost:11434", ai_config)
         
         # Test agent initialization
         agents = {
@@ -108,7 +110,9 @@ def test_orchestrator():
         from integrations.web3_audit_system.orchestrator import MultiAgentOrchestrator
         
         # Create mock client and config
-        ollama_client = OllamaClient("http://localhost:11434")
+        from slitheryn.ai.config import get_ai_config
+        ai_config = get_ai_config()
+        ollama_client = OllamaClient("http://localhost:11434", ai_config)
         config = {
             'agent_types': ['vulnerability', 'exploit', 'fix'],
             'consensus_threshold': 0.7,
@@ -141,7 +145,7 @@ def test_web3_audit_system():
         
         # Create system using integration function
         ai_config = get_ai_config()
-        ollama_client = OllamaClient("http://localhost:11434")
+        ollama_client = OllamaClient("http://localhost:11434", ai_config)
         
         audit_system = create_multi_agent_system(ollama_client, ai_config)
         
