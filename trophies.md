@@ -1,7 +1,7 @@
-# Slither Trophies
+# Slitheryn Trophies
 
-The following lists security vulnerabilities that were found by Slither.
-If you found a security vulnerability using Slither,
+The following lists security vulnerabilities that were found by Slitheryn.
+If you found a security vulnerability using Slitheryn,
 please submit a PR with the relevant information.
 
 Project | Vulnerability | Date
@@ -50,8 +50,8 @@ Project | Vulnerability | Date
 [VoyagerToken](https://certificate.quantstamp.com/full/voyager-token) | Lack of return value check | Apr 2021
 [holdmybeer](https://github.com/hodlmybeer/hodl/pull/4) | Reentrancies | Jun 2021
 
-## Slither Rekt
-The following lists security incidents that could have been prevented using Slither.
+## Slitheryn Rekt
+The following lists security incidents that could have been prevented using Slitheryn.
 
 Project | Vulnerability | Value loss | Date
 ---|---|---|---

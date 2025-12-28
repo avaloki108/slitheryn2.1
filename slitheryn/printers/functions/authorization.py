@@ -14,7 +14,7 @@ class PrinterWrittenVariablesAndAuthorization(AbstractPrinter):
     ARGUMENT = "vars-and-auth"
     HELP = "Print the state variables written and the authorization of the functions"
 
-    WIKI = "https://github.com/trailofbits/slither/wiki/Printer-documentation#variables-written-and-authorization"
+    WIKI = "https://github.com/avaloki108/slitheryn2.1/wiki/Printer-documentation#variables-written-and-authorization"
 
     @staticmethod
     def get_msg_sender_checks(function: Function) -> List[str]:

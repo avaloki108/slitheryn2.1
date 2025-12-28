@@ -17,8 +17,8 @@ import logging
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from slither.ai.config import get_ai_config, setup_ai_logging
-from slither.ai.ollama_client import OllamaClient
+from slitheryn.ai.config import get_ai_config, setup_ai_logging
+from slitheryn.ai.ollama_client import OllamaClient
 
 def parse_arguments():
     """Parse command line arguments"""

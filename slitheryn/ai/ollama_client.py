@@ -1,13 +1,14 @@
 """
 Ollama API client for SmartLLM integration with Slitheryn
 Provides AI-powered smart contract security analysis with multi-agent capabilities
+Enhanced with tool-calling support for devstral-2:123b-cloud model
 """
 
 import json
 import time
 import requests
 import asyncio
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable, Any
 from dataclasses import dataclass
 import logging
 
@@ -26,7 +27,7 @@ class AIAnalysisResult:
     raw_response: str
 
 class OllamaClient:
-    """Client for interacting with Ollama models for security analysis"""
+    """Client for interacting with Ollama models for security analysis with tool-calling support"""
 
     def __init__(
         self,
@@ -54,6 +55,361 @@ class OllamaClient:
         self.primary_model = self.ai_config.config.primary_model
         self.reasoning_model = self.ai_config.config.reasoning_model
         self.comprehensive_model = self.ai_config.config.comprehensive_model
+        
+        # Tool-calling support
+        self.enable_tool_calling = True
+        self.available_tools = self._initialize_tools()
+
+    def _initialize_tools(self) -> List[Dict[str, Any]]:
+        """Initialize available tools for the AI model"""
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_vulnerability",
+                    "description": "Analyze a specific vulnerability type in the contract",
+                    "parameters": {
+                        "type": "object",
+                        "required": ["vulnerability_type", "contract_code"],
+                        "properties": {
+                            "vulnerability_type": {
+                                "type": "string",
+                                "description": "Type of vulnerability to analyze (e.g., reentrancy, access_control, integer_overflow)"
+                            },
+                            "contract_code": {
+                                "type": "string", 
+                                "description": "The contract code to analyze"
+                            },
+                            "target_functions": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Specific functions to focus on"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "generate_attack_scenario",
+                    "description": "Generate a detailed attack scenario for a vulnerability",
+                    "parameters": {
+                        "type": "object",
+                        "required": ["vulnerability", "contract_code"],
+                        "properties": {
+                            "vulnerability": {
+                                "type": "string",
+                                "description": "The vulnerability to create an attack scenario for"
+                            },
+                            "contract_code": {
+                                "type": "string",
+                                "description": "The contract code containing the vulnerability"
+                            },
+                            "attacker_capabilities": {
+                                "type": "string",
+                                "description": "Assumed attacker capabilities and resources"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "recommend_fix",
+                    "description": "Provide specific fix recommendations for a vulnerability",
+                    "parameters": {
+                        "type": "object",
+                        "required": ["vulnerability", "contract_code"],
+                        "properties": {
+                            "vulnerability": {
+                                "type": "string",
+                                "description": "The vulnerability to fix"
+                            },
+                            "contract_code": {
+                                "type": "string",
+                                "description": "The contract code containing the vulnerability"
+                            },
+                            "fix_approach": {
+                                "type": "string",
+                                "enum": ["minimal", "comprehensive", "defensive"],
+                                "description": "Approach to take for the fix"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "assess_economic_impact",
+                    "description": "Assess the economic impact of a vulnerability",
+                    "parameters": {
+                        "type": "object",
+                        "required": ["vulnerability", "contract_code"],
+                        "properties": {
+                            "vulnerability": {
+                                "type": "string",
+                                "description": "The vulnerability to assess"
+                            },
+                            "contract_code": {
+                                "type": "string",
+                                "description": "The contract code"
+                            },
+                            "protocol_context": {
+                                "type": "string",
+                                "description": "Context about the protocol and tokenomics"
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+        return tools
+
+    def _execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+        """Execute a specific tool with given arguments"""
+        try:
+            if tool_name == "analyze_vulnerability":
+                return self._tool_analyze_vulnerability(**arguments)
+            elif tool_name == "generate_attack_scenario":
+                return self._tool_generate_attack_scenario(**arguments)
+            elif tool_name == "recommend_fix":
+                return self._tool_recommend_fix(**arguments)
+            elif tool_name == "assess_economic_impact":
+                return self._tool_assess_economic_impact(**arguments)
+            else:
+                return f"Unknown tool: {tool_name}"
+        except Exception as e:
+            logger.error(f"Error executing tool {tool_name}: {e}")
+            return f"Error executing {tool_name}: {str(e)}"
+
+    def _tool_analyze_vulnerability(self, vulnerability_type: str, contract_code: str, target_functions: List[str] = None) -> str:
+        """Tool implementation for vulnerability analysis"""
+        # Create a focused prompt for this specific vulnerability
+        prompt = f"""Analyze the {vulnerability_type} vulnerability in this contract:
+
+Contract Code:
+{contract_code[:2000]}...
+
+Focus on:
+- How the {vulnerability_type} vulnerability manifests
+- Which functions are affected
+- Conditions that trigger the vulnerability
+- Potential impact severity
+
+Provide a concise technical analysis."""
+        
+        if target_functions:
+            prompt += f"\n\nFocus specifically on these functions: {', '.join(target_functions)}"
+        
+        # Use the model to analyze this specific vulnerability
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    'model': self.primary_model,
+                    'prompt': prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': 0.1,
+                        'num_predict': 500
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json().get('response', 'Analysis failed')
+            else:
+                return f"Analysis failed: {response.status_code}"
+        except Exception as e:
+            return f"Analysis error: {str(e)}"
+
+    def _tool_generate_attack_scenario(self, vulnerability: str, contract_code: str, attacker_capabilities: str = "standard") -> str:
+        """Tool implementation for attack scenario generation"""
+        prompt = f"""Generate a detailed attack scenario for the {vulnerability} vulnerability:
+
+Contract Code:
+{contract_code[:2000]}...
+
+Attacker capabilities: {attacker_capabilities}
+
+Provide:
+1. Step-by-step attack sequence
+2. Required conditions and prerequisites
+3. Expected outcome and impact
+4. Detection and mitigation challenges"""
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    'model': self.primary_model,
+                    'prompt': prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': 0.2,
+                        'num_predict': 800
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json().get('response', 'Scenario generation failed')
+            else:
+                return f"Scenario generation failed: {response.status_code}"
+        except Exception as e:
+            return f"Scenario generation error: {str(e)}"
+
+    def _tool_recommend_fix(self, vulnerability: str, contract_code: str, fix_approach: str = "comprehensive") -> str:
+        """Tool implementation for fix recommendations"""
+        prompt = f"""Provide fix recommendations for the {vulnerability} vulnerability:
+
+Contract Code:
+{contract_code[:2000]}...
+
+Fix approach: {fix_approach}
+
+Provide:
+1. Specific code changes needed
+2. Implementation examples
+3. Additional security measures
+4. Testing recommendations"""
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    'model': self.primary_model,
+                    'prompt': prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': 0.1,
+                        'num_predict': 800
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json().get('response', 'Fix recommendation failed')
+            else:
+                return f"Fix recommendation failed: {response.status_code}"
+        except Exception as e:
+            return f"Fix recommendation error: {str(e)}"
+
+    def _tool_assess_economic_impact(self, vulnerability: str, contract_code: str, protocol_context: str = "") -> str:
+        """Tool implementation for economic impact assessment"""
+        prompt = f"""Assess the economic impact of the {vulnerability} vulnerability:
+
+Contract Code:
+{contract_code[:2000]}...
+
+Protocol context: {protocol_context}
+
+Provide:
+1. Financial loss potential
+2. Market impact assessment
+3. User risk exposure
+4. Systemic risk considerations"""
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    'model': self.primary_model,
+                    'prompt': prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': 0.1,
+                        'num_predict': 600
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json().get('response', 'Economic impact assessment failed')
+            else:
+                return f"Economic impact assessment failed: {response.status_code}"
+        except Exception as e:
+            return f"Economic impact assessment error: {str(e)}"
+
+    def chat_with_tools(self, messages: List[Dict], model: str = None, tools: List[Dict] = None, max_iterations: int = 5) -> Dict:
+        """
+        Chat with the model using tool-calling capabilities
+        Based on Ollama tool-calling documentation
+        """
+        if model is None:
+            model = self.primary_model
+        if tools is None:
+            tools = self.available_tools
+        
+        current_messages = messages.copy()
+        
+        for iteration in range(max_iterations):
+            try:
+                # Make request to Ollama chat API with tools
+                response = requests.post(
+                    f"{self.base_url}/api/chat",
+                    json={
+                        'model': model,
+                        'messages': current_messages,
+                        'stream': False,
+                        'tools': tools,
+                        'options': {
+                            'temperature': self.ai_config.config.temperature,
+                            'num_predict': self.ai_config.config.max_tokens
+                        }
+                    },
+                    timeout=self.timeout
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"Ollama chat API error: {response.status_code} - {response.text}")
+                    break
+                
+                result = response.json()
+                assistant_message = result.get('message', {})
+                
+                # Add assistant message to conversation
+                current_messages.append(assistant_message)
+                
+                # Check if there are tool calls to execute
+                tool_calls = assistant_message.get('tool_calls', [])
+                
+                if not tool_calls:
+                    # No more tool calls, conversation complete
+                    break
+                
+                # Execute each tool call
+                for tool_call in tool_calls:
+                    tool_name = tool_call['function']['name']
+                    tool_args = tool_call['function'].get('arguments', {})
+                    
+                    # Execute the tool
+                    tool_result = self._execute_tool(tool_name, tool_args)
+                    
+                    # Add tool result to conversation
+                    current_messages.append({
+                        'role': 'tool',
+                        'tool_name': tool_name,
+                        'content': str(tool_result)
+                    })
+                
+            except Exception as e:
+                logger.error(f"Error in tool-calling iteration {iteration}: {e}")
+                break
+        
+        # Return the final conversation
+        return {
+            'messages': current_messages,
+            'final_message': current_messages[-1] if current_messages else None,
+            'iterations': iteration + 1
+        }
         
     def check_model_availability(self, model_name: str) -> bool:
         """Check if a model is available in Ollama"""
@@ -101,7 +457,7 @@ class OllamaClient:
                         contract_name: str = "Unknown",
                         analysis_type: str = "comprehensive") -> Optional[AIAnalysisResult]:
         """
-        Analyze smart contract code for security vulnerabilities
+        Analyze smart contract code for security vulnerabilities with tool-calling support
         
         Args:
             contract_code: Solidity contract source code
@@ -113,10 +469,71 @@ class OllamaClient:
         if not model:
             logger.error("No suitable model available for analysis")
             return None
-            
-        prompt = self._build_security_analysis_prompt(contract_code, contract_name, analysis_type)
         
         start_time = time.time()
+        
+        # Try tool-calling approach first for devstral-2:123b-cloud
+        if self.enable_tool_calling and "devstral-2:123b-cloud" in model:
+            try:
+                return self._analyze_with_tools(contract_code, contract_name, model, analysis_type, start_time)
+            except Exception as e:
+                logger.warning(f"Tool-calling analysis failed, falling back to standard analysis: {e}")
+        
+        # Fallback to standard analysis
+        return self._analyze_standard(contract_code, contract_name, model, analysis_type, start_time)
+    
+    def _analyze_with_tools(self, contract_code: str, contract_name: str, model: str, analysis_type: str, start_time: float) -> AIAnalysisResult:
+        """Analyze contract using tool-calling capabilities"""
+        
+        # Build initial message with tools
+        system_prompt = f"""You are an expert Web3 security auditor specializing in smart contract vulnerabilities. 
+
+You have access to specialized tools for comprehensive security analysis. Use these tools to:
+1. Analyze specific vulnerability types in detail
+2. Generate realistic attack scenarios
+3. Provide specific fix recommendations
+4. Assess economic impact
+
+Contract to analyze: {contract_name}
+Contract code:
+{contract_code}
+
+Please perform a comprehensive security analysis using the available tools. Start by identifying potential vulnerabilities, then use the tools to analyze each one in detail."""
+        
+        messages = [
+            {
+                "role": "user",
+                "content": system_prompt
+            }
+        ]
+        
+        # Execute tool-calling analysis
+        tool_result = self.chat_with_tools(messages, model, self.available_tools)
+        
+        analysis_time = time.time() - start_time
+        
+        # Extract final response
+        final_message = tool_result.get('final_message', {})
+        raw_response = final_message.get('content', '')
+        
+        # Parse tool results for structured output
+        parsed_result = self._parse_tool_analysis_result(tool_result, raw_response)
+        
+        return AIAnalysisResult(
+            vulnerabilities=parsed_result['vulnerabilities'],
+            severity_scores=parsed_result['severity_scores'],
+            attack_scenarios=parsed_result['attack_scenarios'],
+            fix_recommendations=parsed_result['fix_recommendations'],
+            confidence_score=parsed_result['confidence_score'],
+            analysis_time=analysis_time,
+            model_used=model,
+            raw_response=raw_response
+        )
+    
+    def _analyze_standard(self, contract_code: str, contract_name: str, model: str, analysis_type: str, start_time: float) -> AIAnalysisResult:
+        """Standard analysis without tool-calling"""
+        
+        prompt = self._build_security_analysis_prompt(contract_code, contract_name, analysis_type)
         
         try:
             response = requests.post(
@@ -155,14 +572,31 @@ class OllamaClient:
                 )
             else:
                 logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                return None
+                raise Exception(f"API error: {response.status_code}")
                 
         except requests.exceptions.Timeout:
             logger.error(f"Analysis timeout after {self.timeout} seconds")
-            return None
+            raise Exception("Analysis timeout")
         except Exception as e:
-            logger.error(f"Error during AI analysis: {e}")
-            return None
+            logger.error(f"Error during standard AI analysis: {e}")
+            raise e
+    
+    def _parse_tool_analysis_result(self, tool_result: Dict, raw_response: str) -> Dict:
+        """Parse results from tool-based analysis"""
+        
+        # Extract tool results from conversation
+        messages = tool_result.get('messages', [])
+        tool_responses = []
+        
+        for message in messages:
+            if message.get('role') == 'tool':
+                tool_responses.append(message.get('content', ''))
+        
+        # Combine tool responses with final analysis
+        combined_text = raw_response + "\n\n" + "\n\n".join(tool_responses)
+        
+        # Parse the combined text using existing parser
+        return self._parse_ai_response(combined_text)
     
     def _select_model_for_analysis_type(self, analysis_type: str) -> Optional[str]:
         """Select the best model based on analysis type"""

@@ -7,7 +7,7 @@ class CFG(AbstractPrinter):
     ARGUMENT = "cfg"
     HELP = "Export the CFG of each functions"
 
-    WIKI = "https://github.com/trailofbits/slither/wiki/Printer-documentation#cfg"
+    WIKI = "https://github.com/avaloki108/slitheryn2.1/wiki/Printer-documentation#cfg"
 
     def output(self, filename: str) -> Output:
         """

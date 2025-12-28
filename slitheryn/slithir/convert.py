@@ -258,6 +258,11 @@ def _find_function_from_parameter(
                 break
             candidates_kept = []
             for candidate in candidates:
+                # Skip None candidates (can happen with unresolved interface functions)
+                if candidate is None or candidate.parameters is None:
+                    continue
+                if idx >= len(candidate.parameters):
+                    continue
                 param = get_type(candidate.parameters[idx].type)
                 if param == type_arg:
                     not_found = False

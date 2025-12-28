@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-PY_MODULE := slither
+PY_MODULE := slitheryn
 TEST_MODULE := tests
 
 ALL_PY_SRCS := $(shell find $(PY_MODULE) -name '*.py') \
@@ -46,7 +46,7 @@ dev: $(VENV)/pyvenv.cfg
 
 .PHONY: run
 run: $(VENV)/pyvenv.cfg
-	@. $(VENV_BIN)/activate && slither $(ARGS)
+	@. $(VENV_BIN)/activate && slitheryn $(ARGS)
 
 $(VENV)/pyvenv.cfg: pyproject.toml
 	# Create our Python 3 virtual environment
@@ -76,7 +76,7 @@ test tests: $(VENV)/pyvenv.cfg
 .PHONY: doc
 doc: $(VENV)/pyvenv.cfg
 	. $(VENV_BIN)/activate && \
-		PDOC_ALLOW_EXEC=1 pdoc -o html slither '!slither.tools'
+		PDOC_ALLOW_EXEC=1 pdoc -o html slitheryn '!slitheryn.tools'
 
 .PHONY: package
 package: $(VENV)/pyvenv.cfg

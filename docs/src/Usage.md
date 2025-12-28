@@ -104,7 +104,7 @@ Slither offers two ways to remove results:
 
 ### Triage mode
 
-`--triage-mode` runs Slither in its triage mode. For every finding, Slither will ask if the result should be shown for the next run. Results are saved in `slither.db.json`.
+`--triage-mode` runs Slitheryn in its triage mode. For every finding, Slitheryn will ask if the result should be shown for the next run. Results are saved in `slitheryn.db.json`.
 
 Examples:
 
@@ -120,11 +120,11 @@ Results to hide during next runs: "0,1,..." or "All" (enter to not hide results)
 
 The second run of Slither will hide the above result.
 
-To show the hidden results again, delete `slither.db.json`.
+To show the hidden results again, delete `slitheryn.db.json`.
 
 ### Configuration File
 
-Some options can be set through a json configuration file. By default, `slither.config.json` is used if present (it can be changed through `--config-file file.config.json`).
+Some options can be set through a json configuration file. By default, `slitheryn.config.json` is used if present (it can be changed through `--config-file file.config.json`).
 
 Options passed via the CLI have priority over options set in the configuration file.
 
@@ -156,7 +156,7 @@ The following flags are supported:
     "show_ignored_findings": False,
     "sarif_input": "export.sarif",
     "sarif_triage": "export.sarif.sarifexplorer",
-    "triage_database": "slither.db.json",
+    "triage_database": "slitheryn.db.json",
     # codex
     "codex": False,
     "codex_contracts": "all",

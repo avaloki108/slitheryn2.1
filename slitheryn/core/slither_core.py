@@ -48,7 +48,7 @@ class SlitherCore(Context):
         self._raw_source_code: Dict[str, str] = {}
         self._source_code_to_line: Optional[Dict[str, List[str]]] = None
 
-        self._previous_results_filename: str = "slither.db.json"
+        self._previous_results_filename: str = "slitheryn.db.json"
 
         # TODO: add cli flag to set these variables
         self.sarif_input: str = "export.sarif"

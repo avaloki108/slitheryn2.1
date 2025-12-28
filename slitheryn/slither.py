@@ -16,7 +16,7 @@ from slitheryn.ai.embedding_service import EmbeddingService
 from slitheryn.ai.vector_store import VectorStore
 from slitheryn.vyper_parsing.ast.ast import parse
 
-logger = logging.getLogger("Slither")
+logger = logging.getLogger("Slitheryn")
 logging.basicConfig()
 
 logger_detector = logging.getLogger("Detectors")
@@ -159,11 +159,11 @@ class Slither(
                     self.add_source_code(path)
 
                 for contract in sol_parser._underlying_contract_to_parser:
-                    if contract.name.startswith("SlitherInternalTopLevelContract"):
+                    if contract.name.startswith("SlitherynInternalTopLevelContract"):
                         raise SlitherError(
                             # region multi-line-string
-                            """Your codebase has a contract named 'SlitherInternalTopLevelContract'.
-        Please rename it, this name is reserved for Slither's internals"""
+                            """Your codebase has a contract named 'SlitherynInternalTopLevelContract'.
+        Please rename it, this name is reserved for Slitheryn's internals"""
                             # endregion multi-line
                         )
                     sol_parser._contracts_by_id[contract.id] = contract
@@ -190,7 +190,7 @@ class Slither(
         self._exclude_dependencies = kwargs.get("exclude_dependencies", False)
 
         triage_mode = kwargs.get("triage_mode", False)
-        triage_database = kwargs.get("triage_database", "slither.db.json")
+        triage_database = kwargs.get("triage_database", "slitheryn.db.json")
         self._triage_mode = triage_mode
         self._previous_results_filename = triage_database
 
@@ -238,18 +238,23 @@ class Slither(
     def _init_rag_configuration(self) -> None:
         """
         Configure RAG from AI config if available.
+        Supports multiple embedding providers: 'mixedbread' (default) or 'ollama'.
         """
         self._ollama_url = "http://localhost:11434"
-        self._embedding_model = "qwen3-embedding:4b"
+        self._embedding_model = "mixedbread-ai/mxbai-embed-large-v1"
+        self._embedding_provider = "mixedbread"
         self._cache_embeddings = True
         self._embedding_cache_path = ".slitheryn/embeddings_cache/embeddings.json"
+        self._ai_config = None
+
         try:
             from slitheryn.ai.config import get_ai_config  # type: ignore
 
-            ai_config = get_ai_config()
-            self._ollama_url = ai_config.get_ollama_url()
-            cfg = ai_config.config
+            self._ai_config = get_ai_config()
+            self._ollama_url = self._ai_config.get_ollama_url()
+            cfg = self._ai_config.config
             self._enable_rag = self._enable_rag or getattr(cfg, "enable_rag", False)
+            self._embedding_provider = getattr(cfg, "embedding_provider", self._embedding_provider)
             self._embedding_model = getattr(cfg, "embedding_model", self._embedding_model)
             self._cache_embeddings = getattr(cfg, "cache_embeddings", self._cache_embeddings)
             self._embedding_cache_path = getattr(
@@ -257,17 +262,24 @@ class Slither(
             )
             self._similarity_threshold = getattr(cfg, "similarity_threshold", 0.7)
             self._max_similar_contracts = getattr(cfg, "max_similar_contracts", 3)
-        except Exception:
+        except Exception as e:
             # Best-effort config; fall back to defaults
+            logger.debug(f"Could not load AI config: {e}")
             self._similarity_threshold = 0.7
             self._max_similar_contracts = 3
 
         if self._enable_rag:
-            self._embedding_service = EmbeddingService(
-                base_url=self._ollama_url,
-                model=self._embedding_model,
-                timeout=120,
-            )
+            # Use the config manager to create the appropriate embedding service
+            if self._ai_config:
+                self._embedding_service = self._ai_config.create_embedding_service()
+                logger.info(f"Using {self._embedding_provider} embedding provider with model {self._embedding_model}")
+            else:
+                # Fallback to Ollama if no config manager
+                self._embedding_service = EmbeddingService(
+                    base_url=self._ollama_url,
+                    model=self._embedding_model,
+                    timeout=120,
+                )
             self._vector_store = VectorStore()
             if self._cache_embeddings and self._embedding_cache_path:
                 try:

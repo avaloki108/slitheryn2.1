@@ -49,6 +49,43 @@ from slitheryn.utils.command_line import (
     DEFAULT_JSON_OUTPUT_TYPES,
     check_and_sanitize_markdown_root,
 )
+
+
+def load_env_variables():
+    """Load environment variables from .env.local file."""
+    from pathlib import Path
+    
+    # Try to find .env.local in current directory or project root
+    current_dir = Path.cwd()
+    project_root = Path(__file__).parent.parent
+    
+    env_locations = [
+        current_dir / ".env.local",
+        project_root / ".env.local",
+        current_dir / ".env",
+        project_root / ".env",
+    ]
+    
+    for env_file in env_locations:
+        if env_file.exists():
+            try:
+                with open(env_file, 'r') as f:
+                    for line_num, line in enumerate(f, 1):
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            try:
+                                key, value = line.split('=', 1)
+                                # Remove quotes if present
+                                value = value.strip('"\'')
+                                os.environ[key] = value
+                            except ValueError:
+                                # Skip malformed lines
+                                continue
+                print(f"Loaded environment variables from {env_file}")
+                return
+            except (IOError, OSError) as e:
+                # If we can't read the file, silently continue
+                continue
 from slitheryn.exceptions import SlitherException
 
 logging.basicConfig()
@@ -459,7 +496,7 @@ def parse_args(
     parser.add_argument(
         "--version",
         help="displays the current version",
-        version=metadata.version("slither-analyzer"),
+        version=metadata.version("slitheryn-analyzer"),
         action="version",
     )
 
@@ -707,7 +744,7 @@ def parse_args(
 
     group_misc.add_argument(
         "--triage-database",
-        help="File path to the triage database (default: slither.db.json)",
+        help="File path to the triage database (default: slitheryn.db.json)",
         action="store",
         dest="triage_database",
         default=defaults_flag_in_config["triage_database"],
@@ -715,7 +752,7 @@ def parse_args(
 
     group_misc.add_argument(
         "--config-file",
-        help="Provide a config file (default: slither.config.json)",
+        help="Provide a config file (default: slitheryn.config.json)",
         action="store",
         dest="config_file",
         default=None,
@@ -915,6 +952,9 @@ class FormatterCryticCompile(logging.Formatter):
 
 
 def main() -> None:
+    # Load environment variables from .env.local if it exists
+    load_env_variables()
+    
     # Codebase with complex domninators can lead to a lot of SSA recursive call
     sys.setrecursionlimit(1500)
 

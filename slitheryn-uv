@@ -1,0 +1,29 @@
+#!/bin/bash
+# Slitheryn wrapper script that automatically uses uv venv and loads environment variables
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
+
+# Load environment variables from .env.local
+if [ -f "$PROJECT_DIR/.env.local" ]; then
+    set -a
+    source "$PROJECT_DIR/.env.local"
+    set +a
+    echo "Loaded environment variables from $PROJECT_DIR/.env.local"
+fi
+
+# Check if uv venv exists, create if not
+if [ ! -d "$PROJECT_DIR/.venv" ]; then
+    echo "Creating uv venv..."
+    cd "$PROJECT_DIR" && uv venv
+fi
+
+# Ensure slitheryn is installed in the venv
+if ! "$PROJECT_DIR/.venv/bin/python" -c "import slitheryn" 2>/dev/null; then
+    echo "Installing slitheryn in uv venv..."
+    cd "$PROJECT_DIR" && uv pip install -e .
+fi
+
+# Run slitheryn with all arguments passed through
+cd "$PROJECT_DIR" && exec "$PROJECT_DIR/.venv/bin/python" -m slitheryn "$@"

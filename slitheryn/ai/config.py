@@ -14,9 +14,9 @@ logger = logging.getLogger("Slitheryn.AI.Config")
 @dataclass
 class AIModelConfig:
     """Configuration for AI models"""
-    primary_model: str = "devstral-small-2:24b"
-    reasoning_model: str = "gpt-oss:20b"
-    comprehensive_model: str = "qwen3-coder:30b"
+    primary_model: str = "devstral-2:123b-cloud"
+    reasoning_model: str = "devstral-2:123b-cloud"
+    comprehensive_model: str = "devstral-2:123b-cloud"
     ollama_base_url: str = "http://localhost:11434"
     timeout: int = 120
     temperature: float = 0.1
@@ -34,11 +34,18 @@ class AIModelConfig:
 
     # RAG configuration
     enable_rag: bool = True
-    embedding_model: str = "qwen3-embedding:4b"
+    embedding_provider: str = "mixedbread"  # "ollama" or "mixedbread"
+    embedding_model: str = "mixedbread-ai/mxbai-embed-large-v1"  # or "qwen3-embedding:4b" for ollama
+    mixedbread_api_key: str = ""  # Set via MXBAI_API_KEY env var or here
     similarity_threshold: float = 0.7
     max_similar_contracts: int = 3
     cache_embeddings: bool = True
     cache_path: str = ".slitheryn/embeddings_cache/embeddings.json"
+
+    # Qdrant vector store configuration
+    use_qdrant: bool = False
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_collection: str = "slitheryn_contracts"
     
     def __post_init__(self):
         if self.analysis_types is None:
@@ -163,6 +170,62 @@ class AIConfigManager:
             'consensus_threshold': getattr(self._config, 'consensus_threshold', 0.7),
             'parallel_analysis': getattr(self._config, 'parallel_analysis', True),
             'max_workers': getattr(self._config, 'max_workers', 4)
+        }
+
+    def get_embedding_provider(self) -> str:
+        """Get the configured embedding provider."""
+        return getattr(self._config, 'embedding_provider', 'mixedbread')
+
+    def get_embedding_model(self) -> str:
+        """Get the configured embedding model."""
+        return getattr(self._config, 'embedding_model', 'mixedbread-ai/mxbai-embed-large-v1')
+
+    def get_mixedbread_api_key(self) -> str:
+        """Get Mixedbread API key from config or environment."""
+        key = getattr(self._config, 'mixedbread_api_key', '')
+        if not key:
+            key = os.getenv('MXBAI_API_KEY', '')
+        return key
+
+    def create_embedding_service(self):
+        """
+        Create the appropriate embedding service based on configuration.
+
+        Supported providers:
+        - 'voyage': Voyage AI (voyage-3.5) - recommended
+        - 'mixedbread': Mixedbread API (mxbai-embed-large-v1)
+        - 'openai': OpenAI API (text-embedding-3-small/large)
+        - 'ollama': Local Ollama (qwen3-embedding:4b, etc.)
+        """
+        provider = self.get_embedding_provider()
+        model = self.get_embedding_model()
+
+        if provider == "voyage":
+            from slitheryn.ai.voyage_embedding import VoyageEmbeddingService
+            api_key = os.getenv('VOYAGE_API_KEY', '')
+            return VoyageEmbeddingService(api_key=api_key, model=model)
+        elif provider == "mixedbread":
+            from slitheryn.ai.mixedbread_embedding import MixedbreadEmbeddingService
+            api_key = self.get_mixedbread_api_key()
+            return MixedbreadEmbeddingService(api_key=api_key, model=model)
+        elif provider == "openai":
+            from slitheryn.ai.openai_embedding import OpenAIEmbeddingService
+            api_key = os.getenv('OPENAI_API_KEY', '')
+            return OpenAIEmbeddingService(api_key=api_key, model=model)
+        else:  # ollama
+            from slitheryn.ai.embedding_service import EmbeddingService
+            return EmbeddingService(
+                base_url=self.get_ollama_url(),
+                model=model,
+                timeout=self._config.timeout,
+            )
+
+    def get_qdrant_config(self) -> Dict[str, Any]:
+        """Get Qdrant vector store configuration."""
+        return {
+            'use_qdrant': getattr(self._config, 'use_qdrant', False),
+            'qdrant_url': getattr(self._config, 'qdrant_url', 'http://localhost:6333'),
+            'qdrant_collection': getattr(self._config, 'qdrant_collection', 'slitheryn_contracts'),
         }
 
 # Global config manager instance

@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from slitheryn.core.compilation_unit import SlitherCompilationUnit
     from slitheryn.detectors.abstract_detector import AbstractDetector
 
-logger = logging.getLogger("Slither")
+logger = logging.getLogger("Slitheryn")
 
 ###################################################################################
 ###################################################################################
@@ -110,7 +110,7 @@ def _output_result_to_sarif(
     if not detector["elements"]:
         logger.info(yellow("Cannot generate Github security alert for finding without location"))
         logger.info(yellow(detector["description"]))
-        logger.info(yellow("This will be supported in a future Slither release"))
+        logger.info(yellow("This will be supported in a future Slitheryn release"))
         return
 
     # From 3.19.10 (http://docs.oasis-open.org/sarif/sarif/v2.0/csprd01/sarif-v2.0-csprd01.html)
@@ -159,9 +159,9 @@ def output_to_sarif(
             {
                 "tool": {
                     "driver": {
-                        "name": "Slither",
-                        "informationUri": "https://github.com/crytic/slither",
-                        "version": metadata.version("slither-analyzer"),
+                        "name": "Slitheryn",
+                        "informationUri": "https://github.com/avaloki108/slitheryn2.1",
+                        "version": metadata.version("slitheryn-analyzer"),
                         "rules": [],
                     }
                 },
@@ -201,7 +201,7 @@ ZIP_TYPES_ACCEPTED = {
 def output_to_zip(filename: str, error: Optional[str], results: Dict, zip_type: str = "lzma"):
     """
     Output the results to a zip
-    The file in the zip is named slither_results.json
+    The file in the zip is named slitheryn_results.json
     Note: the json file will not have indentation, as a result the resulting json file will be smaller
     :param zip_type:
     :param filename:
@@ -218,7 +218,7 @@ def output_to_zip(filename: str, error: Optional[str], results: Dict, zip_type: 
             "w",
             compression=ZIP_TYPES_ACCEPTED.get(zip_type, zipfile.ZIP_LZMA),
         ) as file_desc:
-            file_desc.writestr("slither_results.json", json.dumps(json_result).encode("utf8"))
+            file_desc.writestr("slitheryn_results.json", json.dumps(json_result).encode("utf8"))
 
 
 # endregion

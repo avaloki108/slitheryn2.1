@@ -52,6 +52,7 @@ setup(
     entry_points={
         "console_scripts": [
             "slitheryn = slitheryn.__main__:main",
+            "slitheryn-cli = slitheryn_cli:main",
             "slitheryn-check-upgradeability = slitheryn.tools.upgradeability.__main__:main",
             "slitheryn-find-paths = slitheryn.tools.possible_paths.__main__:main",
             "slitheryn-simil = slitheryn.tools.similarity.__main__:main",

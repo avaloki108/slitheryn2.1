@@ -7,7 +7,7 @@ class Dominator(AbstractPrinter):
     ARGUMENT = "dominator"
     HELP = "Export the dominator tree of each functions"
 
-    WIKI = "https://github.com/trailofbits/slither/wiki/Printer-documentation#dominator"
+    WIKI = "https://github.com/avaloki108/slitheryn2.1/wiki/Printer-documentation#dominator"
 
     def output(self, filename: str) -> Output:
         """

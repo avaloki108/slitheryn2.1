@@ -5,7 +5,7 @@ from pathlib import Path
 
 from slitheryn.utils.command_line import defaults_flag_in_config
 
-logger = logging.getLogger("Slither")
+logger = logging.getLogger("Slitheryn")
 
 
 def init_parser(parser: ArgumentParser, always_enable_codex: bool = False) -> None:
@@ -77,7 +77,7 @@ def init_parser(parser: ArgumentParser, always_enable_codex: bool = False) -> No
 def openai_module():  # type: ignore
     """
     Return the openai module
-    Consider checking the usage of open (slither.codex_enabled) before using this function
+    Consider checking the usage of open (slitheryn.codex_enabled) before using this function
 
     Returns:
         Optional[the openai module]

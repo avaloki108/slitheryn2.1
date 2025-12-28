@@ -425,7 +425,7 @@ class Echidna(AbstractPrinter):
     ARGUMENT = "echidna"
     HELP = "Export Echidna guiding information"
 
-    WIKI = "https://github.com/trailofbits/slither/wiki/Printer-documentation#echidna"
+    WIKI = "https://github.com/avaloki108/slitheryn2.1/wiki/Printer-documentation#echidna"
 
     def output(self, filename: str) -> Output:  # pylint: disable=too-many-locals
         """

@@ -7,7 +7,7 @@ from slitheryn.utils import output
 from slitheryn.utils.output import SupportedOutput
 
 if TYPE_CHECKING:
-    from slither import Slither
+    from slitheryn import Slither
 
 
 class IncorrectPrinterInitialization(Exception):
@@ -15,7 +15,7 @@ class IncorrectPrinterInitialization(Exception):
 
 
 class AbstractPrinter(metaclass=abc.ABCMeta):
-    ARGUMENT = ""  # run the printer with slither.py --ARGUMENT
+    ARGUMENT = ""  # run the printer with slitheryn.py --ARGUMENT
     HELP = ""  # help information
 
     WIKI = ""

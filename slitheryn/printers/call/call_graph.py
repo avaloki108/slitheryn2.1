@@ -222,7 +222,7 @@ class PrinterCallGraph(AbstractPrinter):
     ARGUMENT = "call-graph"
     HELP = "Export the call-graph of the contracts to a dot file"
 
-    WIKI = "https://github.com/trailofbits/slither/wiki/Printer-documentation#call-graph"
+    WIKI = "https://github.com/avaloki108/slitheryn2.1/wiki/Printer-documentation#call-graph"
 
     def output(self, filename: str) -> Output:
         """

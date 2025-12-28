@@ -119,7 +119,7 @@ def compare(
         if (
             function in new_modified_functions
             or function.is_constructor
-            or function.name.startswith("slither")
+            or function.name.startswith("slitheryn")
         ):
             continue
         modified_calls = [

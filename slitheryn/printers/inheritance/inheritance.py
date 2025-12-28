@@ -12,7 +12,7 @@ class PrinterInheritance(AbstractPrinter):
     ARGUMENT = "inheritance"
     HELP = "Print the inheritance relations between contracts"
 
-    WIKI = "https://github.com/trailofbits/slither/wiki/Printer-documentation#inheritance"
+    WIKI = "https://github.com/avaloki108/slitheryn2.1/wiki/Printer-documentation#inheritance"
 
     def _get_child_contracts(self, base):
         # Generate function to get all child contracts of a base contract

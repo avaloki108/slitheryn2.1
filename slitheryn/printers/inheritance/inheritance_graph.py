@@ -33,7 +33,7 @@ class PrinterInheritanceGraph(AbstractPrinter):
     ARGUMENT = "inheritance-graph"
     HELP = "Export the inheritance graph of each contract to a dot file"
 
-    WIKI = "https://github.com/trailofbits/slither/wiki/Printer-documentation#inheritance-graph"
+    WIKI = "https://github.com/avaloki108/slitheryn2.1/wiki/Printer-documentation#inheritance-graph"
 
     def __init__(self, slither, logger):
         super().__init__(slither, logger)

@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: Slither Analyzer
+title: Slitheryn Analyzer
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
@@ -20,11 +20,11 @@ identifiers:
     description: arxiv
   - type: doi
     value: 10.1109/wetseb.2019.00008
-repository-code: 'https://github.com/crytic/slither'
+repository-code: 'https://github.com/avaloki108/slitheryn2.1'
 url: 'https://www.trailofbits.com/'
-repository-artifact: 'https://github.com/crytic/slither/releases'
+repository-artifact: 'https://github.com/avaloki108/slitheryn2.1/releases'
 abstract: >-
-  Slither is a static analysis framework designed to provide
+  Slitheryn is a static analysis framework designed to provide
   rich information about Ethereum smart contracts.
 
   It works by converting Solidity smart contracts into an
@@ -35,7 +35,7 @@ abstract: >-
   while preserving semantic information that would be lost
   in transforming Solidity to bytecode. 
 
-  Slither allows for the application of commonly used
+  Slitheryn allows for the application of commonly used
   program analysis techniques like dataflow and taint
   tracking.
 

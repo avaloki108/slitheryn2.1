@@ -16,7 +16,7 @@ from slitheryn.printers.abstract_printer import AbstractPrinter
 from slitheryn.utils.colors import yellow, red
 from slitheryn.utils.myprettytable import MyPrettyTable
 
-logger = logging.getLogger("Slither")
+logger = logging.getLogger("Slitheryn")
 
 DEFAULT_JSON_OUTPUT_TYPES = ["detectors", "printers"]
 JSON_OUTPUT_TYPES = [
@@ -72,7 +72,7 @@ defaults_flag_in_config = {
     "no_fail": False,
     "sarif_input": "export.sarif",
     "sarif_triage": "export.sarif.sarifexplorer",
-    "triage_database": "slither.db.json",
+    "triage_database": "slitheryn.db.json",
     **DEFAULTS_FLAG_IN_CONFIG_CRYTIC_COMPILE,
 }
 
@@ -81,9 +81,9 @@ def read_config_file(args: argparse.Namespace) -> None:
     # No config file was provided as an argument
     if args.config_file is None:
         # Check whether the default config file is present
-        if os.path.exists("slither.config.json"):
+        if os.path.exists("slitheryn.config.json"):
             # The default file exists, use it
-            args.config_file = "slither.config.json"
+            args.config_file = "slitheryn.config.json"
         else:
             return
 

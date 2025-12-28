@@ -56,10 +56,10 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--config-file",
-        help="Provide a config file (default: slither.config.json)",
+        help="Provide a config file (default: slitheryn.config.json)",
         action="store",
         dest="config_file",
-        default="slither.config.json",
+        default="slitheryn.config.json",
     )
 
     group_detector = parser.add_argument_group("Detectors")
